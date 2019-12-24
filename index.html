@@ -10550,19 +10550,8 @@ var $elm$core$Basics$never = function (_v0) {
 	}
 };
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Main$Model = {};
-var $author$project$Main$init = function (_v0) {
-	return _Utils_Tuple2($author$project$Main$Model, $elm$core$Platform$Cmd$none);
-};
-var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Main$subscriptions = function (_v0) {
-	return $elm$core$Platform$Sub$none;
-};
-var $author$project$Main$update = F2(
-	function (msg, model) {
-		return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-	});
+var $author$project$Main$board_length = 8;
+var $author$project$Main$endPos = _Utils_Tuple2(2, 1);
 var $elm$core$List$repeatHelp = F3(
 	function (result, n, value) {
 		repeatHelp:
@@ -10584,113 +10573,419 @@ var $elm$core$List$repeat = F2(
 	function (n, value) {
 		return A3($elm$core$List$repeatHelp, _List_Nil, n, value);
 	});
-var $author$project$Main$boardSlice = A2($elm$core$List$repeat, 8, _Utils_Tuple0);
-var $author$project$Main$board = A2($elm$core$List$repeat, 8, $author$project$Main$boardSlice);
+var $author$project$Main$getBoardSlice = function (boardLength) {
+	return A2($elm$core$List$repeat, boardLength, _Utils_Tuple0);
+};
+var $author$project$Main$getBoard = function (boardLength) {
+	return A2(
+		$elm$core$List$repeat,
+		boardLength,
+		$author$project$Main$getBoardSlice(boardLength));
+};
+var $author$project$Main$startPos = _Utils_Tuple2(6, 2);
+var $author$project$Main$charACode = 97;
 var $elm$core$String$cons = _String_cons;
 var $elm$core$String$fromChar = function (_char) {
 	return A2($elm$core$String$cons, _char, '');
 };
 var $elm$core$Char$fromCode = _Char_fromCode;
+var $author$project$Main$stringifyPos = function (_v0) {
+	var i = _v0.a;
+	var j = _v0.b;
+	return _Utils_ap(
+		$elm$core$String$fromChar(
+			$elm$core$Char$fromCode($author$project$Main$charACode + j)),
+		$elm$core$String$fromInt(i + 1));
+};
+var $author$project$Main$initialModel = {
+	board: $author$project$Main$getBoard($author$project$Main$board_length),
+	boardLength: $author$project$Main$board_length,
+	endPos: $author$project$Main$endPos,
+	endPosInputValue: $author$project$Main$stringifyPos($author$project$Main$endPos),
+	error: $elm$core$Maybe$Nothing,
+	startPos: $author$project$Main$startPos,
+	startPosInputValue: $author$project$Main$stringifyPos($author$project$Main$startPos)
+};
+var $author$project$Main$init = function (_v0) {
+	return _Utils_Tuple2($author$project$Main$initialModel, $elm$core$Platform$Cmd$none);
+};
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $author$project$Main$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$none;
+};
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $elm$core$Result$fromMaybe = F2(
+	function (err, maybe) {
+		if (maybe.$ === 'Just') {
+			var v = maybe.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			return $elm$core$Result$Err(err);
+		}
+	});
+var $author$project$Main$validatePos = F2(
+	function (value, boardLength) {
+		return A2(
+			$elm$core$Result$fromMaybe,
+			'Wrong position',
+			A2(
+				$elm$core$Maybe$andThen,
+				function (_v1) {
+					var _char = _v1.a;
+					var number = _v1.b;
+					var _v2 = $elm$core$String$toInt(number);
+					if (_v2.$ === 'Just') {
+						var _int = _v2.a;
+						return ((_int >= 0) && (_Utils_cmp(_int, boardLength) < 1)) ? $elm$core$Maybe$Just(
+							_Utils_Tuple2(_int - 1, _char)) : $elm$core$Maybe$Nothing;
+					} else {
+						return $elm$core$Maybe$Nothing;
+					}
+				},
+				A2(
+					$elm$core$Maybe$andThen,
+					function (_v0) {
+						var _char = _v0.a;
+						var number = _v0.b;
+						return ((_Utils_cmp(
+							$elm$core$Char$toCode(_char),
+							$author$project$Main$charACode) < 0) || (_Utils_cmp(
+							$elm$core$Char$toCode(_char),
+							$author$project$Main$charACode + $author$project$Main$board_length) > 0)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+							_Utils_Tuple2(
+								$elm$core$Char$toCode(_char) - $author$project$Main$charACode,
+								number));
+					},
+					$elm$core$String$uncons(value))));
+	});
+var $author$project$Main$update = F2(
+	function (msg, model) {
+		switch (msg.$) {
+			case 'UpdateStartPos':
+				var value = msg.a;
+				var _v1 = A2($author$project$Main$validatePos, value, model.boardLength);
+				if (_v1.$ === 'Ok') {
+					var pos = _v1.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{error: $elm$core$Maybe$Nothing, startPos: pos, startPosInputValue: value}),
+						$elm$core$Platform$Cmd$none);
+				} else {
+					var error = _v1.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								error: $elm$core$Maybe$Just(error),
+								startPosInputValue: value
+							}),
+						$elm$core$Platform$Cmd$none);
+				}
+			case 'UpdateEndPos':
+				var value = msg.a;
+				var _v2 = A2($author$project$Main$validatePos, value, model.boardLength);
+				if (_v2.$ === 'Ok') {
+					var pos = _v2.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{endPos: pos, endPosInputValue: value, error: $elm$core$Maybe$Nothing}),
+						$elm$core$Platform$Cmd$none);
+				} else {
+					var error = _v2.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								endPosInputValue: value,
+								error: $elm$core$Maybe$Just(error)
+							}),
+						$elm$core$Platform$Cmd$none);
+				}
+			default:
+				var value = msg.a;
+				var boardLength = A2(
+					$elm$core$Maybe$withDefault,
+					$author$project$Main$board_length,
+					$elm$core$String$toInt(value));
+				var newModel = (_Utils_cmp(boardLength, $author$project$Main$board_length) > -1) ? _Utils_update(
+					model,
+					{
+						board: $author$project$Main$getBoard(boardLength),
+						boardLength: boardLength
+					}) : model;
+				return _Utils_Tuple2(newModel, $elm$core$Platform$Cmd$none);
+		}
+	});
+var $author$project$Main$UpdateBoardLength = function (a) {
+	return {$: 'UpdateBoardLength', a: a};
+};
+var $author$project$Main$UpdateEndPos = function (a) {
+	return {$: 'UpdateEndPos', a: a};
+};
+var $author$project$Main$UpdateStartPos = function (a) {
+	return {$: 'UpdateStartPos', a: a};
+};
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $author$project$Main$getGridTemplateAreas = function (boardLength) {
+	return A2(
+		$elm$core$String$join,
+		'\n',
+		_Utils_ap(
+			_List_fromArray(
+				[
+					'\". ' + (A2($elm$core$String$repeat, boardLength, 'column ') + '\"')
+				]),
+			A2(
+				$elm$core$List$map,
+				function (_v0) {
+					return '\"row ' + (A2($elm$core$String$repeat, boardLength, 'board ') + '\"');
+				},
+				A2($elm$core$List$repeat, boardLength, ''))));
+};
+var $elm$html$Html$h1 = _VirtualDom_node('h1');
 var $elm$core$Basics$modBy = _Basics_modBy;
-var $author$project$Main$view = function (_v0) {
+var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
+var $author$project$Main$view = function (model) {
 	return A2(
 		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				A2($elm$html$Html$Attributes$style, 'display', 'grid'),
-				A2($elm$html$Html$Attributes$style, 'grid-template-columns', '50px 1fr')
-			]),
+		_List_Nil,
 		_List_fromArray(
 			[
 				A2(
+				$elm$html$Html$h1,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Visualizing Breadth First Search - Knight shortest path')
+					])),
+				A2(
 				$elm$html$Html$div,
 				_List_fromArray(
 					[
-						A2($elm$html$Html$Attributes$style, 'display', 'grid'),
-						A2($elm$html$Html$Attributes$style, 'grid-template-columns', '50px')
+						$elm$html$Html$Attributes$class('config-container')
 					]),
-				A2(
-					$elm$core$List$indexedMap,
-					F2(
-						function (i, _v1) {
-							return A2(
-								$elm$html$Html$div,
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$div,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$span,
 								_List_Nil,
 								_List_fromArray(
 									[
-										$elm$html$Html$text(
-										$elm$core$String$fromInt(i + 1))
-									]));
-						}),
-					$author$project$Main$boardSlice)),
-				A2(
-				$elm$html$Html$div,
-				_List_fromArray(
-					[
-						A2($elm$html$Html$Attributes$style, 'display', 'grid'),
-						A2($elm$html$Html$Attributes$style, 'grid-template-columns', 'repeat(8, 50px)'),
-						A2($elm$html$Html$Attributes$style, 'grid-template-rows', 'repeat(8, 50px)'),
-						A2($elm$html$Html$Attributes$style, 'width', '400px'),
-						A2($elm$html$Html$Attributes$style, 'border', '1px solid black')
-					]),
-				$elm$core$List$concat(
-					A2(
-						$elm$core$List$indexedMap,
-						F2(
-							function (i, column) {
-								return A2(
-									$elm$core$List$indexedMap,
-									F2(
-										function (j, _v2) {
-											return A2(
-												$elm$html$Html$div,
-												_List_fromArray(
-													[
-														A2(
-														$elm$html$Html$Attributes$style,
-														'background',
-														(!A2($elm$core$Basics$modBy, 2, i + j)) ? 'brown' : 'white')
-													]),
-												_List_fromArray(
-													[
-														$elm$html$Html$text(
-														_Utils_ap(
-															$elm$core$String$fromInt(i),
-															$elm$core$String$fromInt(j)))
-													]));
-										}),
-									column);
-							}),
-						$author$project$Main$board))),
-				A2(
-				$elm$html$Html$div,
-				_List_fromArray(
-					[
-						A2($elm$html$Html$Attributes$style, 'display', 'grid'),
-						A2($elm$html$Html$Attributes$style, 'grid-template-columns', 'repeat(8, 50px)'),
-						A2($elm$html$Html$Attributes$style, 'grid-template-rows', 'repeat(8, 50px)'),
-						A2($elm$html$Html$Attributes$style, 'margin', '0 0 0 50px')
-					]),
-				A2(
-					$elm$core$List$indexedMap,
-					F2(
-						function (i, _v3) {
-							return A2(
-								$elm$html$Html$div,
+										$elm$html$Html$text('Board length')
+									])),
+								A2(
+								$elm$html$Html$input,
+								_List_fromArray(
+									[
+										$elm$html$Html$Events$onInput($author$project$Main$UpdateBoardLength),
+										$elm$html$Html$Attributes$type_('number'),
+										$elm$html$Html$Attributes$value(
+										$elm$core$String$fromInt(model.boardLength))
+									]),
+								_List_Nil)
+							])),
+						A2(
+						$elm$html$Html$div,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$span,
 								_List_Nil,
 								_List_fromArray(
 									[
-										$elm$html$Html$text(
-										A3($elm$core$Basics$composeR, $elm$core$Char$fromCode, $elm$core$String$fromChar, i + 97))
-									]));
-						}),
-					$author$project$Main$boardSlice))
+										$elm$html$Html$text('Start position')
+									])),
+								A2(
+								$elm$html$Html$input,
+								_List_fromArray(
+									[
+										$elm$html$Html$Events$onInput($author$project$Main$UpdateStartPos),
+										$elm$html$Html$Attributes$value(model.startPosInputValue),
+										$elm$html$Html$Attributes$placeholder('e.g. a1')
+									]),
+								_List_Nil)
+							])),
+						A2(
+						$elm$html$Html$div,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$span,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('End position')
+									])),
+								A2(
+								$elm$html$Html$input,
+								_List_fromArray(
+									[
+										$elm$html$Html$Events$onInput($author$project$Main$UpdateEndPos),
+										$elm$html$Html$Attributes$value(model.endPosInputValue),
+										$elm$html$Html$Attributes$placeholder('e.g. b3')
+									]),
+								_List_Nil)
+							]))
+					])),
+				A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('board-container'),
+						A2($elm$html$Html$Attributes$style, 'display', 'grid'),
+						A2($elm$html$Html$Attributes$style, 'grid-template-columns', 'repeat(9, 50px)'),
+						A2($elm$html$Html$Attributes$style, 'grid-template-rows', 'repeat(9, 50px)'),
+						A2(
+						$elm$html$Html$Attributes$style,
+						'grid-template-areas',
+						$author$project$Main$getGridTemplateAreas(model.boardLength))
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('rows-label'),
+								A2($elm$html$Html$Attributes$style, 'display', 'grid'),
+								A2($elm$html$Html$Attributes$style, 'grid-template-columns', '50px'),
+								A2(
+								$elm$html$Html$Attributes$style,
+								'grid-template-rows',
+								'repeat(' + ($elm$core$String$fromInt(model.boardLength) + ', 50px)')),
+								A2($elm$html$Html$Attributes$style, 'grid-area', 'row')
+							]),
+						A2(
+							$elm$core$List$indexedMap,
+							F2(
+								function (i, _v0) {
+									return A2(
+										$elm$html$Html$div,
+										_List_Nil,
+										_List_fromArray(
+											[
+												$elm$html$Html$text(
+												$elm$core$String$fromInt(i + 1))
+											]));
+								}),
+							$author$project$Main$getBoardSlice(model.boardLength))),
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('columns-label'),
+								A2($elm$html$Html$Attributes$style, 'display', 'grid'),
+								A2(
+								$elm$html$Html$Attributes$style,
+								'grid-template-columns',
+								'repeat(' + ($elm$core$String$fromInt(model.boardLength) + ', 50px)')),
+								A2($elm$html$Html$Attributes$style, 'grid-template-rows', '50px'),
+								A2($elm$html$Html$Attributes$style, 'grid-area', 'column')
+							]),
+						A2(
+							$elm$core$List$indexedMap,
+							F2(
+								function (i, _v1) {
+									return A2(
+										$elm$html$Html$div,
+										_List_Nil,
+										_List_fromArray(
+											[
+												$elm$html$Html$text(
+												A3($elm$core$Basics$composeR, $elm$core$Char$fromCode, $elm$core$String$fromChar, i + $author$project$Main$charACode))
+											]));
+								}),
+							$author$project$Main$getBoardSlice(model.boardLength))),
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								A2($elm$html$Html$Attributes$style, 'display', 'grid'),
+								A2(
+								$elm$html$Html$Attributes$style,
+								'grid-template-columns',
+								'repeat(' + ($elm$core$String$fromInt(model.boardLength) + ', 50px)')),
+								A2(
+								$elm$html$Html$Attributes$style,
+								'grid-template-rows',
+								'repeat(' + ($elm$core$String$fromInt(model.boardLength) + ', 50px)')),
+								A2($elm$html$Html$Attributes$style, 'grid-area', 'board'),
+								A2(
+								$elm$html$Html$Attributes$style,
+								'width',
+								$elm$core$String$fromInt(model.boardLength * 50) + 'px'),
+								A2($elm$html$Html$Attributes$style, 'outline', '1px solid black')
+							]),
+						$elm$core$List$concat(
+							A2(
+								$elm$core$List$indexedMap,
+								F2(
+									function (i, column) {
+										return A2(
+											$elm$core$List$indexedMap,
+											F2(
+												function (j, _v2) {
+													return A2(
+														$elm$html$Html$div,
+														_List_fromArray(
+															[
+																A2(
+																$elm$html$Html$Attributes$style,
+																'background',
+																_Utils_eq(
+																	_Utils_Tuple2(i, j),
+																	model.startPos) ? 'blue' : (_Utils_eq(
+																	_Utils_Tuple2(i, j),
+																	model.endPos) ? 'green' : ((!A2($elm$core$Basics$modBy, 2, i + j)) ? '#6d4c41' : '#e0e0e0')))
+															]),
+														_List_fromArray(
+															[
+																$elm$html$Html$text(
+																_Utils_ap(
+																	$elm$core$String$fromInt(i),
+																	$elm$core$String$fromInt(j)))
+															]));
+												}),
+											column);
+									}),
+								model.board)))
+					]))
 			]));
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
 	{init: $author$project$Main$init, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$update, view: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{},"unions":{"Main.Msg":{"args":[],"tags":{"NoOp":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{},"unions":{"Main.Msg":{"args":[],"tags":{"UpdateStartPos":["String.String"],"UpdateEndPos":["String.String"],"UpdateBoardLength":["String.String"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
 
   var app = Elm.Main.init({ node: document.getElementById("elm") });
 }
