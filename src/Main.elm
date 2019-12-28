@@ -4,6 +4,7 @@ import Browser
 import Html exposing (Html, div, h1, input, span, text)
 import Html.Attributes exposing (class, placeholder, style, type_, value)
 import Html.Events exposing (onInput)
+import KnightBFS exposing (Move, algebraicToMove, charACode, getKnightMoves, moveToAlgebraic, validateMove)
 
 
 
@@ -27,9 +28,9 @@ main =
 type alias Model =
     { boardLength : Int
     , board : Board
-    , startPos : Pos
+    , startPos : Move
     , startPosInputValue : String
-    , endPos : Pos
+    , endPos : Move
     , endPosInputValue : String
     , error : Maybe String
     }
@@ -48,14 +49,14 @@ type alias BoardSlice =
     List ()
 
 
-startPos : Pos
+startPos : Move
 startPos =
-    ( 6, 2 )
+    ( 6, 2, 0 )
 
 
-endPos : Pos
+endPos : Move
 endPos =
-    ( 2, 1 )
+    ( 2, 1, 0 )
 
 
 initialModel : Model
@@ -63,25 +64,11 @@ initialModel =
     { boardLength = board_length
     , board = getBoard board_length
     , startPos = startPos
-    , startPosInputValue = stringifyPos startPos
+    , startPosInputValue = moveToAlgebraic startPos
     , endPos = endPos
-    , endPosInputValue = stringifyPos endPos
+    , endPosInputValue = moveToAlgebraic endPos
     , error = Nothing
     }
-
-
-type alias Pos =
-    ( Int, Int )
-
-
-charACode : Int
-charACode =
-    97
-
-
-stringifyPos : Pos -> String
-stringifyPos ( i, j ) =
-    (charACode + j |> Char.fromCode |> String.fromChar) ++ String.fromInt (i + 1)
 
 
 getBoardSlice : Int -> BoardSlice
@@ -114,7 +101,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateStartPos value ->
-            case validatePos value model.boardLength of
+            case algebraicToMove model.boardLength value of
                 Ok pos ->
                     ( { model
                         | startPos = pos
@@ -133,7 +120,7 @@ update msg model =
                     )
 
         UpdateEndPos value ->
-            case validatePos value model.boardLength of
+            case algebraicToMove model.boardLength value of
                 Ok pos ->
                     ( { model
                         | endPos = pos
@@ -169,34 +156,6 @@ update msg model =
             ( newModel, Cmd.none )
 
 
-validatePos : String -> Int -> Result String Pos
-validatePos value boardLength =
-    value
-        |> String.uncons
-        |> Maybe.andThen
-            (\( char, number ) ->
-                if (Char.toCode char < charACode) || (Char.toCode char > charACode + board_length) then
-                    Nothing
-
-                else
-                    Just ( Char.toCode char - charACode, number )
-            )
-        |> Maybe.andThen
-            (\( char, number ) ->
-                case String.toInt number of
-                    Just int ->
-                        if int >= 0 && int <= boardLength then
-                            Just ( int - 1, char )
-
-                        else
-                            Nothing
-
-                    Nothing ->
-                        Nothing
-            )
-        |> Result.fromMaybe "Wrong position"
-
-
 
 -- Subscriptions
 
@@ -214,6 +173,15 @@ view : Model -> Html Msg
 view model =
     div []
         [ h1 [] [ text "Visualizing Breadth First Search - Knight shortest path" ]
+        , h1 []
+            [ span [] [ text "Number of moves: " ]
+            , span []
+                [ text <|
+                    String.fromInt <|
+                        Result.withDefault 0 <|
+                            getKnightMoves model.startPosInputValue model.endPosInputValue model.boardLength
+                ]
+            ]
         , div [ class "config-container" ]
             [ div []
                 [ span [] [ text "Board length" ]
@@ -293,10 +261,10 @@ view model =
                                 (\j _ ->
                                     div
                                         [ style "background" <|
-                                            if ( i, j ) == model.startPos then
+                                            if ( i, j, 0 ) == model.startPos then
                                                 "blue"
 
-                                            else if ( i, j ) == model.endPos then
+                                            else if ( i, j, 0 ) == model.endPos then
                                                 "green"
 
                                             else if modBy 2 (i + j) == 0 then

@@ -1,4 +1,4 @@
-module KnightBFS exposing (getKnightMoves)
+module KnightBFS exposing (Move, algebraicToMove, charACode, getKnightMoves, moveToAlgebraic, validateMove)
 
 
 charACode : Int
@@ -38,7 +38,7 @@ getKnightMoves start finish boardLength =
 
 moveToAlgebraic : Move -> String
 moveToAlgebraic ( i, j, _ ) =
-    String.fromInt i
+    String.fromInt (i + 1)
         |> (++) (j + charACode |> Char.fromCode |> String.fromChar)
 
 
@@ -93,14 +93,11 @@ getShortestPath boardLength (( iStart, jStart, level ) as start) (( iEnd, jEnd, 
 
     else
         let
-            possibleMoves =
-                getPossibleMoves start boardLength queue
-
             newQueue =
-                possibleMoves
-                    |> (++) queue
-                    |> List.tail
-                    |> Maybe.withDefault []
+                getPossibleMoves start
+                    |> List.filterMap (validateMove boardLength)
+                    |> List.filter (isUniqueInQueue queue)
+                    |> getNextQueue queue
         in
         getShortestPath
             boardLength
@@ -109,29 +106,24 @@ getShortestPath boardLength (( iStart, jStart, level ) as start) (( iEnd, jEnd, 
             newQueue
 
 
+getNextQueue : Queue -> Queue -> Queue
+getNextQueue queue possibleMoves =
+    possibleMoves
+        |> (++) queue
+        |> List.tail
+        |> Maybe.withDefault []
+
+
 isUniqueInQueue : Queue -> Move -> Bool
 isUniqueInQueue queue move =
-    List.member move queue
-        |> not
+    List.member move queue |> not
 
 
-getPossibleMoves : Move -> Int -> Queue -> Queue
-getPossibleMoves ( i, j, l ) boardLength queue =
-    [ -- up-left, up-right
-      ( i - 2, j - 1, l + 1 )
-    , ( i - 2, j + 1, l + 1 )
-
-    -- right-up, right-down
-    , ( i - 1, j + 2, l + 1 )
-    , ( i + 1, j + 2, l + 1 )
-
-    -- down-left, down-right
-    , ( i + 2, j - 1, l + 1 )
-    , ( i + 2, j + 1, l + 1 )
-
-    -- left-up, left-down
-    , ( i - 1, j - 2, l + 1 )
-    , ( i + 1, j - 2, l + 1 )
-    ]
-        |> List.filterMap (validateMove boardLength)
-        |> List.filter (isUniqueInQueue queue)
+getPossibleMoves : Move -> Queue
+getPossibleMoves ( i, j, level ) =
+    List.map2
+        (\iMove jMove -> ( i + iMove, j + jMove, level + 1 ))
+        -- possible moves for i
+        [ -2, -2, -1, 1, 2, 2, -1, 1 ]
+        -- possible moves for j
+        [ -1, 1, 2, 2, -1, 1, -2, -2 ]
