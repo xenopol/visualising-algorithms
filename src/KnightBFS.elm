@@ -1,4 +1,7 @@
-module KnightBFS exposing (Move, algebraicToMove, charACode, getKnightMoves, moveToAlgebraic, validateMove)
+module KnightBFS exposing (Model, Move, Msg(..), Queue, algebraicToMove, charACode, defaultError, getInit, getKnightMoves, moveToAlgebraic, update)
+
+import Process
+import Task
 
 
 charACode : Int
@@ -11,38 +14,105 @@ defaultError =
     "Wrong positions"
 
 
+
+-- Model
+
+
+type alias Model =
+    { startPos : Move
+    , finishPos : Move
+    , currentPos : Move
+    , boardLength : BoardLength
+    , numberOfMoves : Int
+    , queue : Queue
+    }
+
+
+type alias Move =
+    ( Int, Int )
+
+
+type alias BoardLength =
+    Int
+
+
 type alias Queue =
     List Move
 
 
-type alias Move =
-    ( Int, Int, Int )
+getInit : Move -> Move -> BoardLength -> Model
+getInit startPos finishPos boardLength =
+    { startPos = startPos
+    , finishPos = finishPos
+    , currentPos = startPos
+    , boardLength = boardLength
+    , numberOfMoves = 0
+    , queue = []
+    }
 
 
-getKnightMoves : String -> String -> Int -> Result String Int
-getKnightMoves start finish boardLength =
-    let
-        moves =
-            [ start, finish ]
-                |> List.map (algebraicToMove boardLength)
-    in
-    case moves of
-        [ Ok startMove, Ok endMove ] ->
-            [ startMove ]
-                |> getShortestPath boardLength startMove endMove
-                |> Ok
 
-        _ ->
-            Err defaultError
+-- Update
+
+
+type Msg
+    = Calculating Model
+    | CalculationDone Int
+    | UpdateBoardLength BoardLength
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        Calculating newModel ->
+            ( newModel, getKnightMoves newModel )
+
+        CalculationDone numberOfMoves ->
+            ( { model | numberOfMoves = numberOfMoves }, Cmd.none )
+
+        UpdateBoardLength length ->
+            ( { model | boardLength = length }, Cmd.none )
+
+
+getKnightMoves : Model -> Cmd Msg
+getKnightMoves ({ currentPos, finishPos, boardLength, numberOfMoves, queue } as model) =
+    if currentPos == finishPos then
+        Task.perform CalculationDone <|
+            Task.succeed numberOfMoves
+
+    else
+        let
+            newQueue =
+                getPossibleMoves currentPos
+                    |> List.filterMap (validateMove boardLength)
+                    |> List.filter (isUniqueInQueue queue)
+                    |> getNextQueue queue
+
+            nextPos =
+                newQueue |> List.head |> Maybe.withDefault ( 0, 0 )
+        in
+        Task.perform
+            Calculating
+            (Process.sleep 100
+                |> Task.andThen
+                    (\_ ->
+                        Task.succeed
+                            { model
+                                | currentPos = nextPos
+                                , numberOfMoves = model.numberOfMoves + 1
+                                , queue = newQueue
+                            }
+                    )
+            )
 
 
 moveToAlgebraic : Move -> String
-moveToAlgebraic ( i, j, _ ) =
+moveToAlgebraic ( i, j ) =
     String.fromInt (i + 1)
         |> (++) (j + charACode |> Char.fromCode |> String.fromChar)
 
 
-algebraicToMove : Int -> String -> Result String Move
+algebraicToMove : BoardLength -> String -> Result String Move
 algebraicToMove boardLength position =
     -- a3
     position
@@ -52,11 +122,9 @@ algebraicToMove boardLength position =
         |> Maybe.andThen parseRow
         -- (2, 0)
         |> Maybe.map parseColumn
-        -- (2, 0, 0)
-        |> Maybe.map addDefaultLevel
-        -- Maybe (2, 0, 0)
+        -- Maybe (2, 0)
         |> Maybe.andThen (validateMove boardLength)
-        -- Result "Wrong position" (2, 0, 0)
+        -- Result "Wrong position" (2, 0)
         |> Result.fromMaybe defaultError
 
 
@@ -72,38 +140,13 @@ parseColumn ( i, j ) =
     ( i, Char.toCode j - charACode )
 
 
-addDefaultLevel : ( Int, Int ) -> Move
-addDefaultLevel ( i, j ) =
-    ( i, j, 0 )
-
-
-validateMove : Int -> Move -> Maybe Move
-validateMove boardLength ( i, j, l ) =
+validateMove : BoardLength -> Move -> Maybe Move
+validateMove boardLength ( i, j ) =
     if i >= 0 && i < boardLength && j >= 0 && j < boardLength then
-        Just ( i, j, l )
+        Just ( i, j )
 
     else
         Nothing
-
-
-getShortestPath : Int -> Move -> Move -> Queue -> Int
-getShortestPath boardLength (( iStart, jStart, level ) as start) (( iEnd, jEnd, _ ) as end) queue =
-    if iStart == iEnd && jStart == jEnd then
-        level
-
-    else
-        let
-            newQueue =
-                getPossibleMoves start
-                    |> List.filterMap (validateMove boardLength)
-                    |> List.filter (isUniqueInQueue queue)
-                    |> getNextQueue queue
-        in
-        getShortestPath
-            boardLength
-            (newQueue |> List.head |> Maybe.withDefault ( 0, 0, 0 ))
-            end
-            newQueue
 
 
 getNextQueue : Queue -> Queue -> Queue
@@ -120,9 +163,9 @@ isUniqueInQueue queue move =
 
 
 getPossibleMoves : Move -> Queue
-getPossibleMoves ( i, j, level ) =
+getPossibleMoves ( i, j ) =
     List.map2
-        (\iMove jMove -> ( i + iMove, j + jMove, level + 1 ))
+        (\iMove jMove -> ( i + iMove, j + jMove ))
         -- possible moves for i
         [ -2, -2, -1, 1, 2, 2, -1, 1 ]
         -- possible moves for j

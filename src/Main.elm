@@ -1,10 +1,10 @@
 module Main exposing (Model, Msg, init, main, subscriptions, update, view)
 
 import Browser
-import Html exposing (Html, div, h1, input, span, text)
+import Html exposing (Html, button, div, h1, input, span, text)
 import Html.Attributes exposing (class, placeholder, style, type_, value)
-import Html.Events exposing (onInput)
-import KnightBFS exposing (Move, algebraicToMove, charACode, getKnightMoves, moveToAlgebraic, validateMove)
+import Html.Events exposing (onClick, onInput)
+import KnightBFS as K
 
 
 
@@ -26,12 +26,10 @@ main =
 
 
 type alias Model =
-    { boardLength : Int
-    , board : Board
-    , startPos : Move
+    { board : Board
     , startPosInputValue : String
-    , endPos : Move
     , endPosInputValue : String
+    , knightBFSModel : K.Model
     , error : Maybe String
     }
 
@@ -49,24 +47,22 @@ type alias BoardSlice =
     List ()
 
 
-startPos : Move
+startPos : K.Move
 startPos =
-    ( 6, 2, 0 )
+    ( 6, 2 )
 
 
-endPos : Move
+endPos : K.Move
 endPos =
-    ( 2, 1, 0 )
+    ( 2, 1 )
 
 
 initialModel : Model
 initialModel =
-    { boardLength = board_length
-    , board = getBoard board_length
-    , startPos = startPos
-    , startPosInputValue = moveToAlgebraic startPos
-    , endPos = endPos
-    , endPosInputValue = moveToAlgebraic endPos
+    { board = getBoard board_length
+    , startPosInputValue = K.moveToAlgebraic startPos
+    , endPosInputValue = K.moveToAlgebraic endPos
+    , knightBFSModel = K.getInit startPos endPos board_length
     , error = Nothing
     }
 
@@ -95,48 +91,20 @@ type Msg
     = UpdateStartPos String
     | UpdateEndPos String
     | UpdateBoardLength String
+    | CalculatingKnightMoves K.Msg
+    | CalculateShortestPath
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateStartPos value ->
-            case algebraicToMove model.boardLength value of
-                Ok pos ->
-                    ( { model
-                        | startPos = pos
-                        , startPosInputValue = value
-                        , error = Nothing
-                      }
-                    , Cmd.none
-                    )
-
-                Err error ->
-                    ( { model
-                        | startPosInputValue = value
-                        , error = Just error
-                      }
-                    , Cmd.none
-                    )
+            -- TO-DO update knightBFSModel
+            ( { model | startPosInputValue = value }, Cmd.none )
 
         UpdateEndPos value ->
-            case algebraicToMove model.boardLength value of
-                Ok pos ->
-                    ( { model
-                        | endPos = pos
-                        , endPosInputValue = value
-                        , error = Nothing
-                      }
-                    , Cmd.none
-                    )
-
-                Err error ->
-                    ( { model
-                        | endPosInputValue = value
-                        , error = Just error
-                      }
-                    , Cmd.none
-                    )
+            -- TO-DO update knightBFSModel
+            ( { model | endPosInputValue = value }, Cmd.none )
 
         UpdateBoardLength value ->
             let
@@ -146,7 +114,11 @@ update msg model =
                 newModel =
                     if boardLength >= board_length then
                         { model
-                            | boardLength = boardLength
+                            | knightBFSModel =
+                                Tuple.first <|
+                                    K.update
+                                        (K.UpdateBoardLength boardLength)
+                                        model.knightBFSModel
                             , board = getBoard boardLength
                         }
 
@@ -154,6 +126,21 @@ update msg model =
                         model
             in
             ( newModel, Cmd.none )
+
+        CalculateShortestPath ->
+            ( model
+            , Cmd.map CalculatingKnightMoves <|
+                K.getKnightMoves model.knightBFSModel
+            )
+
+        CalculatingKnightMoves msgK ->
+            let
+                ( modelK, cmdK ) =
+                    K.update msgK model.knightBFSModel
+            in
+            ( { model | knightBFSModel = modelK }
+            , Cmd.map CalculatingKnightMoves cmdK
+            )
 
 
 
@@ -173,13 +160,16 @@ view : Model -> Html Msg
 view model =
     div []
         [ h1 [] [ text "Visualizing Breadth First Search - Knight shortest path" ]
-        , h1 []
+        , div []
             [ span [] [ text "Number of moves: " ]
             , span []
                 [ text <|
-                    String.fromInt <|
-                        Result.withDefault 0 <|
-                            getKnightMoves model.startPosInputValue model.endPosInputValue model.boardLength
+                    case model.error of
+                        Just error ->
+                            error
+
+                        Nothing ->
+                            String.fromInt model.knightBFSModel.numberOfMoves
                 ]
             ]
         , div [ class "config-container" ]
@@ -188,7 +178,7 @@ view model =
                 , input
                     [ onInput UpdateBoardLength
                     , type_ "number"
-                    , value <| String.fromInt model.boardLength
+                    , value <| String.fromInt model.knightBFSModel.boardLength
                     ]
                     []
                 ]
@@ -210,6 +200,7 @@ view model =
                     ]
                     []
                 ]
+            , button [ onClick CalculateShortestPath ] [ text "Get shortest path" ]
             ]
         , div
             [ class "board-container"
@@ -218,23 +209,23 @@ view model =
             , style "grid-template-rows" "repeat(9, 50px)"
             , style
                 "grid-template-areas"
-                (getGridTemplateAreas model.boardLength)
+                (getGridTemplateAreas model.knightBFSModel.boardLength)
             ]
             [ div
                 [ class "rows-label"
                 , style "display" "grid"
                 , style "grid-template-columns" "50px"
-                , style "grid-template-rows" <| "repeat(" ++ String.fromInt model.boardLength ++ ", 50px)"
+                , style "grid-template-rows" <| "repeat(" ++ String.fromInt model.knightBFSModel.boardLength ++ ", 50px)"
                 , style "grid-area" "row"
                 ]
               <|
                 List.indexedMap
                     (\i _ -> div [] [ text <| String.fromInt <| i + 1 ])
-                    (getBoardSlice model.boardLength)
+                    (getBoardSlice model.knightBFSModel.boardLength)
             , div
                 [ class "columns-label"
                 , style "display" "grid"
-                , style "grid-template-columns" <| "repeat(" ++ String.fromInt model.boardLength ++ ", 50px)"
+                , style "grid-template-columns" <| "repeat(" ++ String.fromInt model.knightBFSModel.boardLength ++ ", 50px)"
                 , style "grid-template-rows" "50px"
                 , style "grid-area" "column"
                 ]
@@ -242,15 +233,15 @@ view model =
                 List.indexedMap
                     (\i _ ->
                         div []
-                            [ text (i + charACode |> Char.fromCode >> String.fromChar) ]
+                            [ text (i + K.charACode |> Char.fromCode >> String.fromChar) ]
                     )
-                    (getBoardSlice model.boardLength)
+                    (getBoardSlice model.knightBFSModel.boardLength)
             , div
                 [ style "display" "grid"
-                , style "grid-template-columns" <| "repeat(" ++ String.fromInt model.boardLength ++ ", 50px)"
-                , style "grid-template-rows" <| "repeat(" ++ String.fromInt model.boardLength ++ ", 50px)"
+                , style "grid-template-columns" <| "repeat(" ++ String.fromInt model.knightBFSModel.boardLength ++ ", 50px)"
+                , style "grid-template-rows" <| "repeat(" ++ String.fromInt model.knightBFSModel.boardLength ++ ", 50px)"
                 , style "grid-area" "board"
-                , style "width" <| String.fromInt (model.boardLength * 50) ++ "px"
+                , style "width" <| String.fromInt (model.knightBFSModel.boardLength * 50) ++ "px"
                 , style "outline" "1px solid black"
                 ]
               <|
@@ -261,17 +252,19 @@ view model =
                                 (\j _ ->
                                     div
                                         [ style "background" <|
-                                            if ( i, j, 0 ) == model.startPos then
+                                            if ( i, j ) == model.knightBFSModel.startPos then
                                                 "blue"
 
-                                            else if ( i, j, 0 ) == model.endPos then
+                                            else if ( i, j ) == model.knightBFSModel.finishPos then
                                                 "green"
+                                                -- else if isInQueue i j model.queue then
+                                                --     "yellow"
 
                                             else if modBy 2 (i + j) == 0 then
-                                                "#6d4c41"
+                                                "#769655"
 
                                             else
-                                                "#e0e0e0"
+                                                "#edeed2"
                                         ]
                                         [ text <| String.fromInt i ++ String.fromInt j ]
                                 )
