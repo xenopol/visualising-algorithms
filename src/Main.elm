@@ -49,12 +49,12 @@ type alias BoardSlice =
 
 startPos : K.Move
 startPos =
-    ( 6, 2 )
+    ( 6, 2, 0 )
 
 
 endPos : K.Move
 endPos =
-    ( 2, 1 )
+    ( 2, 1, 0 )
 
 
 initialModel : Model
@@ -252,19 +252,9 @@ view model =
                                 (\j _ ->
                                     div
                                         [ style "background" <|
-                                            if ( i, j ) == model.knightBFSModel.startPos then
-                                                "blue"
-
-                                            else if ( i, j ) == model.knightBFSModel.finishPos then
-                                                "green"
-                                                -- else if isInQueue i j model.queue then
-                                                --     "yellow"
-
-                                            else if modBy 2 (i + j) == 0 then
-                                                "#769655"
-
-                                            else
-                                                "#edeed2"
+                                            getCellBackground i j model.knightBFSModel
+                                        , style "border" <|
+                                            getCellBorder i j model.knightBFSModel
                                         ]
                                         [ text <| String.fromInt i ++ String.fromInt j ]
                                 )
@@ -285,3 +275,41 @@ getGridTemplateAreas boardLength =
             )
         |> (++) [ "\". " ++ String.repeat boardLength "column " ++ "\"" ]
         |> String.join "\n"
+
+
+getCellBackground : Int -> Int -> K.Model -> String
+getCellBackground i j modelK =
+    if ( i, j, 0 ) == modelK.startPos then
+        "blue"
+
+    else if ( i, j, 0 ) == modelK.finishPos then
+        "green"
+
+    else if isInQueue i j modelK.queue then
+        "yellow"
+
+    else if modBy 2 (i + j) == 0 then
+        "#769655"
+
+    else
+        "#edeed2"
+
+
+isInQueue : Int -> Int -> K.Queue -> Bool
+isInQueue i j queue =
+    List.any
+        (\( currentI, currentJ, _ ) -> i == currentI && j == currentJ)
+        queue
+
+
+getCellBorder : Int -> Int -> K.Model -> String
+getCellBorder i j modelK =
+    let
+        ( currentI, currentJ, _ ) =
+            modelK.currentPos
+    in
+    if i == currentI && j == currentJ then
+        "3px solid red"
+
+    else
+        "none"

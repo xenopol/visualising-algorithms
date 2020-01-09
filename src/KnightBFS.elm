@@ -29,7 +29,7 @@ type alias Model =
 
 
 type alias Move =
-    ( Int, Int )
+    ( Int, Int, Int )
 
 
 type alias BoardLength =
@@ -75,10 +75,17 @@ update msg model =
 
 
 getKnightMoves : Model -> Cmd Msg
-getKnightMoves ({ currentPos, finishPos, boardLength, numberOfMoves, queue } as model) =
-    if currentPos == finishPos then
+getKnightMoves ({ currentPos, finishPos, boardLength, queue } as model) =
+    let
+        ( currentI, currentJ, currentLevel ) =
+            currentPos
+
+        ( finishI, finishJ, _ ) =
+            finishPos
+    in
+    if currentI == finishI && currentJ == finishJ then
         Task.perform CalculationDone <|
-            Task.succeed numberOfMoves
+            Task.succeed currentLevel
 
     else
         let
@@ -89,17 +96,16 @@ getKnightMoves ({ currentPos, finishPos, boardLength, numberOfMoves, queue } as 
                     |> getNextQueue queue
 
             nextPos =
-                newQueue |> List.head |> Maybe.withDefault ( 0, 0 )
+                newQueue |> List.head |> Maybe.withDefault ( 0, 0, 0 )
         in
         Task.perform
             Calculating
-            (Process.sleep 100
+            (Process.sleep 1000
                 |> Task.andThen
                     (\_ ->
                         Task.succeed
                             { model
                                 | currentPos = nextPos
-                                , numberOfMoves = model.numberOfMoves + 1
                                 , queue = newQueue
                             }
                     )
@@ -107,7 +113,7 @@ getKnightMoves ({ currentPos, finishPos, boardLength, numberOfMoves, queue } as 
 
 
 moveToAlgebraic : Move -> String
-moveToAlgebraic ( i, j ) =
+moveToAlgebraic ( i, j, _ ) =
     String.fromInt (i + 1)
         |> (++) (j + charACode |> Char.fromCode |> String.fromChar)
 
@@ -122,9 +128,11 @@ algebraicToMove boardLength position =
         |> Maybe.andThen parseRow
         -- (2, 0)
         |> Maybe.map parseColumn
-        -- Maybe (2, 0)
+        -- (2, 0, 0)
+        |> Maybe.map addDefaultLevel
+        -- Maybe (2, 0, 0)
         |> Maybe.andThen (validateMove boardLength)
-        -- Result "Wrong position" (2, 0)
+        -- Result "Wrong position" (2, 0, 0)
         |> Result.fromMaybe defaultError
 
 
@@ -140,10 +148,15 @@ parseColumn ( i, j ) =
     ( i, Char.toCode j - charACode )
 
 
-validateMove : BoardLength -> Move -> Maybe Move
-validateMove boardLength ( i, j ) =
+addDefaultLevel : ( Int, Int ) -> Move
+addDefaultLevel ( i, j ) =
+    ( i, j, 0 )
+
+
+validateMove : Int -> Move -> Maybe Move
+validateMove boardLength ( i, j, l ) =
     if i >= 0 && i < boardLength && j >= 0 && j < boardLength then
-        Just ( i, j )
+        Just ( i, j, l )
 
     else
         Nothing
@@ -163,9 +176,9 @@ isUniqueInQueue queue move =
 
 
 getPossibleMoves : Move -> Queue
-getPossibleMoves ( i, j ) =
+getPossibleMoves ( i, j, level ) =
     List.map2
-        (\iMove jMove -> ( i + iMove, j + jMove ))
+        (\iMove jMove -> ( i + iMove, j + jMove, level + 1 ))
         -- possible moves for i
         [ -2, -2, -1, 1, 2, 2, -1, 1 ]
         -- possible moves for j
