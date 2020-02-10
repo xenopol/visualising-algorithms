@@ -47,14 +47,19 @@ type alias BoardSlice =
     List ()
 
 
+defaultMove : K.Move
+defaultMove =
+    K.defaultMove
+
+
 startPos : K.Move
 startPos =
-    ( 6, 2, 0 )
+    { defaultMove | pos = ( 6, 2 ) }
 
 
 endPos : K.Move
 endPos =
-    ( 2, 1, 0 )
+    { defaultMove | pos = ( 7, 7 ) }
 
 
 initialModel : Model
@@ -279,10 +284,13 @@ getGridTemplateAreas boardLength =
 
 getCellBackground : Int -> Int -> K.Model -> String
 getCellBackground i j modelK =
-    if ( i, j, 0 ) == modelK.startPos then
+    if ( i, j ) == modelK.startPos.pos then
         "blue"
 
-    else if ( i, j, 0 ) == modelK.finishPos then
+    else if modelK.numberOfMoves > 0 && isInTrace i j modelK.currentPos.trace then
+        "red"
+
+    else if ( i, j ) == modelK.finishPos.pos then
         "green"
 
     else if isInQueue i j modelK.queue then
@@ -298,17 +306,18 @@ getCellBackground i j modelK =
 isInQueue : Int -> Int -> K.Queue -> Bool
 isInQueue i j queue =
     List.any
-        (\( currentI, currentJ, _ ) -> i == currentI && j == currentJ)
+        (\move -> i == Tuple.first move.pos && j == Tuple.second move.pos)
         queue
 
 
+isInTrace : Int -> Int -> K.Trace -> Bool
+isInTrace i j (K.Trace trace) =
+    List.any (\{ pos } -> pos == ( i, j )) trace
+
+
 getCellBorder : Int -> Int -> K.Model -> String
-getCellBorder i j modelK =
-    let
-        ( currentI, currentJ, _ ) =
-            modelK.currentPos
-    in
-    if i == currentI && j == currentJ then
+getCellBorder i j { currentPos } =
+    if i == Tuple.first currentPos.pos && j == Tuple.second currentPos.pos then
         "3px solid red"
 
     else

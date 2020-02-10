@@ -1,4 +1,4 @@
-module KnightBFS exposing (Model, Move, Msg(..), Queue, algebraicToMove, charACode, defaultError, getInit, getKnightMoves, moveToAlgebraic, update)
+module KnightBFS exposing (Model, Move, Msg(..), Queue, Trace(..), algebraicToMove, charACode, defaultError, defaultMove, getInit, getKnightMoves, moveToAlgebraic, update)
 
 import Process
 import Task
@@ -29,7 +29,14 @@ type alias Model =
 
 
 type alias Move =
-    ( Int, Int, Int )
+    { pos : ( Int, Int )
+    , level : Int
+    , trace : Trace
+    }
+
+
+type Trace
+    = Trace (List Move)
 
 
 type alias BoardLength =
@@ -38,6 +45,14 @@ type alias BoardLength =
 
 type alias Queue =
     List Move
+
+
+defaultMove : Move
+defaultMove =
+    { pos = ( 0, 0 )
+    , level = 0
+    , trace = Trace []
+    }
 
 
 getInit : Move -> Move -> BoardLength -> Model
@@ -76,44 +91,40 @@ update msg model =
 
 getKnightMoves : Model -> Cmd Msg
 getKnightMoves ({ currentPos, finishPos, boardLength, queue } as model) =
-    let
-        ( currentI, currentJ, currentLevel ) =
-            currentPos
-
-        ( finishI, finishJ, _ ) =
-            finishPos
-    in
-    if currentI == finishI && currentJ == finishJ then
+    if currentPos.pos == finishPos.pos then
         Task.perform CalculationDone <|
-            Task.succeed currentLevel
+            Task.succeed currentPos.level
 
     else
         let
-            newQueue =
+            possibleMoves =
                 getPossibleMoves currentPos
                     |> List.filterMap (validateMove boardLength)
                     |> List.filter (isUniqueInQueue queue)
-                    |> getNextQueue queue
 
-            nextPos =
-                newQueue |> List.head |> Maybe.withDefault ( 0, 0, 0 )
+            nextQueue =
+                queue ++ possibleMoves
         in
         Task.perform
             Calculating
-            (Process.sleep 1000
+            (Process.sleep 0
                 |> Task.andThen
                     (\_ ->
                         Task.succeed
                             { model
-                                | currentPos = nextPos
-                                , queue = newQueue
+                                | currentPos = getQueueHead nextQueue
+                                , queue = getQueueTail nextQueue
                             }
                     )
             )
 
 
 moveToAlgebraic : Move -> String
-moveToAlgebraic ( i, j, _ ) =
+moveToAlgebraic { pos } =
+    let
+        ( i, j ) =
+            pos
+    in
     String.fromInt (i + 1)
         |> (++) (j + charACode |> Char.fromCode |> String.fromChar)
 
@@ -128,11 +139,11 @@ algebraicToMove boardLength position =
         |> Maybe.andThen parseRow
         -- (2, 0)
         |> Maybe.map parseColumn
-        -- (2, 0, 0)
-        |> Maybe.map addDefaultLevel
-        -- Maybe (2, 0, 0)
+        -- Move
+        |> Maybe.map convertToMove
+        -- Maybe Move
         |> Maybe.andThen (validateMove boardLength)
-        -- Result "Wrong position" (2, 0, 0)
+        -- Result "Wrong position" Move
         |> Result.fromMaybe defaultError
 
 
@@ -148,38 +159,60 @@ parseColumn ( i, j ) =
     ( i, Char.toCode j - charACode )
 
 
-addDefaultLevel : ( Int, Int ) -> Move
-addDefaultLevel ( i, j ) =
-    ( i, j, 0 )
+convertToMove : ( Int, Int ) -> Move
+convertToMove pos =
+    { defaultMove | pos = pos }
 
 
 validateMove : Int -> Move -> Maybe Move
-validateMove boardLength ( i, j, l ) =
+validateMove boardLength move =
+    let
+        ( i, j ) =
+            move.pos
+    in
     if i >= 0 && i < boardLength && j >= 0 && j < boardLength then
-        Just ( i, j, l )
+        Just move
 
     else
         Nothing
 
 
-getNextQueue : Queue -> Queue -> Queue
-getNextQueue queue possibleMoves =
-    possibleMoves
-        |> (++) queue
+getQueueHead : Queue -> Move
+getQueueHead queue =
+    queue
+        |> List.head
+        |> Maybe.withDefault defaultMove
+
+
+getQueueTail : Queue -> Queue
+getQueueTail queue =
+    queue
         |> List.tail
         |> Maybe.withDefault []
 
 
 isUniqueInQueue : Queue -> Move -> Bool
 isUniqueInQueue queue move =
-    List.member move queue |> not
+    queue
+        |> List.any (\{ pos } -> pos == move.pos)
+        |> not
 
 
 getPossibleMoves : Move -> Queue
-getPossibleMoves ( i, j, level ) =
+getPossibleMoves move =
+    let
+        (Trace currentMoveTrace) =
+            move.trace
+    in
     List.map2
-        (\iMove jMove -> ( i + iMove, j + jMove, level + 1 ))
+        (\i j ->
+            { move
+                | pos = ( Tuple.first move.pos + i, Tuple.second move.pos + j )
+                , level = move.level + 1
+                , trace = Trace <| move :: currentMoveTrace
+            }
+        )
         -- possible moves for i
-        [ -2, -2, -1, 1, 2, 2, -1, 1 ]
+        [ -2, -1, 1, 2, 2, 1, -1, -2 ]
         -- possible moves for j
-        [ -1, 1, 2, 2, -1, 1, -2, -2 ]
+        [ 1, 2, 2, 1, -1, -2, -2, -1 ]
