@@ -76,6 +76,8 @@ type Msg
     = Calculating Model
     | CalculationDone Int
     | UpdateBoardLength BoardLength
+    | UpdateStartPos Move
+    | UpdateEndPos Move
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -89,6 +91,17 @@ update msg model =
 
         UpdateBoardLength length ->
             ( { model | boardLength = length }, Cmd.none )
+
+        UpdateStartPos startPos ->
+            ( { model
+                | startPos = startPos
+                , currentPos = startPos
+              }
+            , Cmd.none
+            )
+
+        UpdateEndPos endPos ->
+            ( { model | endPos = endPos }, Cmd.none )
 
 
 getKnightMoves : Model -> Cmd Msg

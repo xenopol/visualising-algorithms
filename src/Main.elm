@@ -104,12 +104,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateStartPos value ->
-            -- TO-DO update knightBFSModel
-            ( { model | startPosInputValue = value }, Cmd.none )
+            ( updatePos value updateStartPosInputValue updateKStartPos model, Cmd.none )
 
         UpdateEndPos value ->
-            -- TO-DO update knightBFSModel
-            ( { model | endPosInputValue = value }, Cmd.none )
+            ( updatePos value updateEndPosInputValue updateKEndPos model, Cmd.none )
 
         UpdateBoardLength value ->
             let
@@ -146,6 +144,51 @@ update msg model =
             ( { model | knightBFSModel = modelK }
             , Cmd.map CalculatingKnightMoves cmdK
             )
+
+
+updatePos :
+    String
+    -> (String -> Model -> Model)
+    -> (K.Move -> K.Model -> K.Model)
+    -> Model
+    -> Model
+updatePos value posUpdater kPosUpdater model =
+    let
+        newModel =
+            posUpdater value model
+    in
+    case K.algebraicToMove model.knightBFSModel.boardLength value of
+        Ok move ->
+            { newModel
+                | knightBFSModel = kPosUpdater move model.knightBFSModel
+                , error = Nothing
+            }
+
+        Err error ->
+            { newModel
+                | startPosInputValue = value
+                , error = Just error
+            }
+
+
+updateStartPosInputValue : String -> Model -> Model
+updateStartPosInputValue value model =
+    { model | startPosInputValue = value }
+
+
+updateEndPosInputValue : String -> Model -> Model
+updateEndPosInputValue value model =
+    { model | endPosInputValue = value }
+
+
+updateKStartPos : K.Move -> K.Model -> K.Model
+updateKStartPos move kModel =
+    Tuple.first <| K.update (K.UpdateStartPos move) kModel
+
+
+updateKEndPos : K.Move -> K.Model -> K.Model
+updateKEndPos move kModel =
+    Tuple.first <| K.update (K.UpdateEndPos move) kModel
 
 
 
