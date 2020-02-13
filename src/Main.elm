@@ -290,7 +290,7 @@ getCellBackground i j modelK =
     else if modelK.numberOfMoves > 0 && isInTrace i j modelK.currentPos.trace then
         "red"
 
-    else if ( i, j ) == modelK.finishPos.pos then
+    else if ( i, j ) == modelK.endPos.pos then
         "green"
 
     else if isInQueue i j modelK.queue then

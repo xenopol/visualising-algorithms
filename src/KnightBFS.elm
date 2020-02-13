@@ -20,7 +20,7 @@ defaultError =
 
 type alias Model =
     { startPos : Move
-    , finishPos : Move
+    , endPos : Move
     , currentPos : Move
     , boardLength : BoardLength
     , numberOfMoves : Int
@@ -57,9 +57,9 @@ defaultMove =
 
 
 getInit : Move -> Move -> BoardLength -> Model
-getInit startPos finishPos boardLength =
+getInit startPos endPos boardLength =
     { startPos = startPos
-    , finishPos = finishPos
+    , endPos = endPos
     , currentPos = startPos
     , boardLength = boardLength
     , numberOfMoves = 0
@@ -92,8 +92,8 @@ update msg model =
 
 
 getKnightMoves : Model -> Cmd Msg
-getKnightMoves ({ currentPos, finishPos, boardLength, queue, discardedQueue } as model) =
-    if currentPos.pos == finishPos.pos then
+getKnightMoves ({ currentPos, endPos, boardLength, queue, discardedQueue } as model) =
+    if currentPos.pos == endPos.pos then
         Task.perform CalculationDone <|
             Task.succeed currentPos.level
 
