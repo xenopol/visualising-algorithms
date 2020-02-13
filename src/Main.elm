@@ -98,6 +98,7 @@ type Msg
     | UpdateBoardLength String
     | CalculatingKnightMoves K.Msg
     | CalculateShortestPath
+    | ResetModel
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -144,6 +145,9 @@ update msg model =
             ( { model | knightBFSModel = modelK }
             , Cmd.map CalculatingKnightMoves cmdK
             )
+
+        ResetModel ->
+            ( initialModel, Cmd.none )
 
 
 updatePos :
@@ -249,6 +253,7 @@ view model =
                     []
                 ]
             , button [ onClick CalculateShortestPath ] [ text "Get shortest path" ]
+            , button [ onClick ResetModel ] [ text "Reset" ]
             ]
         , div
             [ class "board-container"
