@@ -25,6 +25,7 @@ type alias Model =
     , boardLength : BoardLength
     , numberOfMoves : Int
     , queue : Queue
+    , discardedQueue : Queue
     }
 
 
@@ -63,6 +64,7 @@ getInit startPos finishPos boardLength =
     , boardLength = boardLength
     , numberOfMoves = 0
     , queue = []
+    , discardedQueue = []
     }
 
 
@@ -90,7 +92,7 @@ update msg model =
 
 
 getKnightMoves : Model -> Cmd Msg
-getKnightMoves ({ currentPos, finishPos, boardLength, queue } as model) =
+getKnightMoves ({ currentPos, finishPos, boardLength, queue, discardedQueue } as model) =
     if currentPos.pos == finishPos.pos then
         Task.perform CalculationDone <|
             Task.succeed currentPos.level
@@ -101,19 +103,21 @@ getKnightMoves ({ currentPos, finishPos, boardLength, queue } as model) =
                 getPossibleMoves currentPos
                     |> List.filterMap (validateMove boardLength)
                     |> List.filter (isUniqueInQueue queue)
+                    |> List.filter (isUniqueInQueue discardedQueue)
 
             nextQueue =
                 queue ++ possibleMoves
         in
         Task.perform
             Calculating
-            (Process.sleep 0
+            (Process.sleep 100
                 |> Task.andThen
                     (\_ ->
                         Task.succeed
                             { model
                                 | currentPos = getQueueHead nextQueue
                                 , queue = getQueueTail nextQueue
+                                , discardedQueue = currentPos :: discardedQueue
                             }
                     )
             )
